@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}Stock — PhoneStockManager{% endblock %}
+{% block page_name %}Stock Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">// STOCK</div>
+    <div class="page-sub">{{ stock|length }} device(s) shown</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('addStockModal')">+ Add Phone</button>
+</div>
+
+<!-- Filter bar -->
+<form method="GET" action="/stock">
+  <div class="filter-bar">
+    <div class="search-input">
+      <span class="search-icon">🔍</span>
+      <input name="q" class="form-control" placeholder="Search brand, model, IMEI..." value="{{ search }}">
+    </div>
+    <select name="status" class="form-control" style="width:140px;" onchange="this.form.submit()">
+      <option value="">All Status</option>
+      {% for s in ['In Stock','Sold','Reserved','Repair'] %}
+      <option value="{{ s }}" {% if filter_status==s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <select name="brand" class="form-control" style="width:130px;" onchange="this.form.submit()">
+      <option value="">All Brands</option>
+      {% for b in brands %}
+      <option value="{{ b.brand }}" {% if filter_brand==b.brand %}selected{% endif %}>{{ b.brand }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-outline">Filter</button>
+    <a href="/stock" class="btn btn-ghost">Clear</a>
+  </div>
+</form>
+
+<!-- Table -->
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>#</th><th>Brand / Model</th><th>IMEI</th><th>Storage</th>
+        <th>Colour</th><th>Condition</th><th>Buy Price</th>
+        <th>Sell Price</th><th>Margin</th><th>Status</th>
+        <th>Date In</th><th>Supplier</th><th>Actions</th>
+      </tr></thead>
+      <tbody>
+        {% for p in stock %}
+        {% set margin = (p.sell_price - p.buy_price) if p.sell_price else 0 %}
+        <tr>
+          <td class="muted mono">{{ p.id }}</td>
+          <td>
+            <div style="font-weight:600;">{{ p.brand }}</div>
+            <div style="font-size:11px;color:#888;">{{ p.model }}</div>
+          </td>
+          <td class="mono">{{ p.imei or '—' }}</td>
+          <td class="muted">{{ p.storage or '—' }}</td>
+          <td class="muted">{{ p.colour or '—' }}</td>
+          <td>
+            {% if p.condition == 'New' %}<span class="badge badge-green">New</span>
+            {% elif p.condition == 'Excellent' %}<span class="badge badge-blue">Excellent</span>
+            {% elif p.condition == 'Good' %}<span class="badge badge-grey">Good</span>
+            {% elif p.condition == 'Fair' %}<span class="badge badge-amber">Fair</span>
+            {% else %}<span class="badge badge-red">Poor</span>{% endif %}
+          </td>
+          <td class="mono">R{{ "{:,.0f}".format(p.buy_price) }}</td>
+          <td class="mono">{% if p.sell_price %}R{{ "{:,.0f}".format(p.sell_price) }}{% else %}—{% endif %}</td>
+          <td class="{% if margin > 0 %}profit-pos{% elif margin < 0 %}profit-neg{% else %}muted{% endif %}">
+            {% if p.sell_price %}R{{ "{:,.0f}".format(margin) }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if p.status == 'In Stock' %}<span class="badge badge-green">In Stock</span>
+            {% elif p.status == 'Sold' %}<span class="badge badge-grey">Sold</span>
+            {% elif p.status == 'Reserved' %}<span class="badge badge-amber">Reserved</span>
+            {% else %}<span class="badge badge-red">Repair</span>{% endif %}
+          </td>
+          <td class="muted mono">{{ p.date_purchased }}</td>
+          <td class="muted">{{ p.supplier_name or '—' }}</td>
+          <td>
+            <div class="flex gap-2">
+              <button class="btn btn-ghost btn-xs"
+                onclick="loadEdit({{ p.id }})">Edit</button>
+              <form method="POST" action="/stock/delete/{{ p.id }}"
+                onsubmit="return confirm('Delete this phone?')">
+                <button type="submit" class="btn btn-danger btn-xs">Del</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="13"><div class="empty-state">
+          <div class="empty-icon">📦</div>No stock found.
+        </div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div id="addStockModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">+ Add Phone to Stock</span>
+      <button class="modal-close" onclick="closeModal('addStockModal')">✕</button>
+    </div>
+    <form method="POST" action="/stock/add">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Brand *</label>
+            <input name="brand" class="form-control" list="brandList" required placeholder="Apple">
+            <datalist id="brandList">
+              <option value="Apple"><option value="Samsung"><option value="Xiaomi">
+              <option value="Huawei"><option value="Oppo"><option value="OnePlus">
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Model *</label>
+            <input name="model" class="form-control" required placeholder="iPhone 14">
+          </div>
+          <div class="form-group">
+            <label class="form-label">IMEI</label>
+            <input name="imei" class="form-control" placeholder="15-digit IMEI">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Storage</label>
+            <input name="storage" class="form-control" list="storageList" placeholder="128GB">
+            <datalist id="storageList">
+              <option value="32GB"><option value="64GB"><option value="128GB">
+              <option value="256GB"><option value="512GB"><option value="1TB">
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Colour</label>
+            <input name="colour" class="form-control" placeholder="Black">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Condition *</label>
+            <select name="condition" class="form-control" required>
+              <option value="New">New</option>
+              <option value="Excellent">Excellent</option>
+              <option value="Good" selected>Good</option>
+              <option value="Fair">Fair</option>
+              <option value="Poor">Poor</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Buy Price (R) *</label>
+            <input name="buy_price" type="number" step="0.01" class="form-control" required placeholder="5000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sell Price (R)</label>
+            <input name="sell_price" type="number" step="0.01" class="form-control" placeholder="7500">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-control">
+              <option value="In Stock">In Stock</option>
+              <option value="Reserved">Reserved</option>
+              <option value="Repair">Repair</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Supplier</label>
+            <select name="supplier_id" class="form-control">
+              <option value="">— None —</option>
+              {% for sup in suppliers %}
+              <option value="{{ sup.id }}">{{ sup.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date Purchased</label>
+            <input name="date_purchased" type="date" class="form-control">
+          </div>
+        </div>
+        <div class="form-group mt-2">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" placeholder="Any extra details..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('addStockModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Phone</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="editStockModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Edit Phone</span>
+      <button class="modal-close" onclick="closeModal('editStockModal')">✕</button>
+    </div>
+    <form method="POST" id="editStockForm">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Brand *</label>
+            <input name="brand" id="e_brand" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Model *</label>
+            <input name="model" id="e_model" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">IMEI</label>
+            <input name="imei" id="e_imei" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Storage</label>
+            <input name="storage" id="e_storage" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Colour</label>
+            <input name="colour" id="e_colour" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Condition *</label>
+            <select name="condition" id="e_condition" class="form-control">
+              <option value="New">New</option><option value="Excellent">Excellent</option>
+              <option value="Good">Good</option><option value="Fair">Fair</option>
+              <option value="Poor">Poor</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Buy Price (R) *</label>
+            <input name="buy_price" id="e_buy_price" type="number" step="0.01" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sell Price (R)</label>
+            <input name="sell_price" id="e_sell_price" type="number" step="0.01" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select name="status" id="e_status" class="form-control">
+              <option value="In Stock">In Stock</option><option value="Sold">Sold</option>
+              <option value="Reserved">Reserved</option><option value="Repair">Repair</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Supplier</label>
+            <select name="supplier_id" id="e_supplier_id" class="form-control">
+              <option value="">— None —</option>
+              {% for sup in suppliers %}
+              <option value="{{ sup.id }}">{{ sup.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date Purchased</label>
+            <input name="date_purchased" id="e_date_purchased" type="date" class="form-control">
+          </div>
+        </div>
+        <div class="form-group mt-2">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" id="e_notes" class="form-control"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('editStockModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadEdit(id) {
+  fetch('/stock/get/' + id)
+    .then(r => r.json())
+    .then(p => {
+      document.getElementById('editStockForm').action = '/stock/edit/' + p.id;
+      ['brand','model','imei','storage','colour','condition',
+       'buy_price','sell_price','status','date_purchased','notes'].forEach(f => {
+        const el = document.getElementById('e_' + f);
+        if (el) el.value = p[f] || '';
+      });
+      const sup = document.getElementById('e_supplier_id');
+      if (sup) sup.value = p.supplier_id || '';
+      openModal('editStockModal');
+    });
+}
+</script>
+{% endblock %}

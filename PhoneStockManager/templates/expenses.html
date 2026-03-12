@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Expenses — PhoneStockManager{% endblock %}
+{% block page_name %}Expenses{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">// EXPENSES</div>
+    <div class="page-sub">Total: R{{ "{:,.0f}".format(total) }}</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('addExpenseModal')">+ Add Expense</button>
+</div>
+
+<div class="charts-grid" style="margin-bottom:20px;">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Expenses by Category</span></div>
+    <div class="card-body"><div class="chart-wrap"><canvas id="expChart"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Category Breakdown</span></div>
+    <div class="card-body">
+      {% for cat in by_cat %}
+      <div class="flex items-center gap-2" style="padding:8px 0;border-bottom:1px solid var(--border);">
+        <span style="flex:1;font-size:13px;">{{ cat.category }}</span>
+        <span class="mono text-amber">R{{ "{:,.0f}".format(cat.total) }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>#</th><th>Date</th><th>Category</th>
+        <th>Description</th><th>Amount</th><th>Notes</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for e in expenses %}
+        <tr>
+          <td class="mono muted">{{ e.id }}</td>
+          <td class="muted">{{ e.date }}</td>
+          <td><span class="badge badge-amber">{{ e.category }}</span></td>
+          <td>{{ e.description }}</td>
+          <td class="mono text-amber">R{{ "{:,.0f}".format(e.amount) }}</td>
+          <td class="muted" style="font-size:11px;">{{ e.notes or '' }}</td>
+          <td>
+            <form method="POST" action="/expenses/delete/{{ e.id }}"
+              onsubmit="return confirm('Delete this expense?')">
+              <button type="submit" class="btn btn-danger btn-xs">Del</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7"><div class="empty-state">
+          <div class="empty-icon">💼</div>No expenses recorded.
+        </div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADD EXPENSE MODAL -->
+<div id="addExpenseModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">+ Add Expense</span>
+      <button class="modal-close" onclick="closeModal('addExpenseModal')">✕</button>
+    </div>
+    <form method="POST" action="/expenses/add">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Category *</label>
+            <select name="category" class="form-control" required>
+              <option value="Rent">Rent</option>
+              <option value="Electricity">Electricity</option>
+              <option value="Transport">Transport</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Tools">Tools</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount (R) *</label>
+            <input name="amount" type="number" step="0.01" class="form-control" required placeholder="0.00">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Description *</label>
+            <input name="description" class="form-control" required placeholder="e.g. Shop rental — June 2024">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input name="date" type="date" class="form-control">
+          </div>
+        </div>
+        <div class="form-group mt-2">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" placeholder="Optional..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('addExpenseModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Expense</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const bycat = {{ by_cat_json|safe }};
+new Chart(document.getElementById('expChart'), {
+  type: 'bar',
+  data: {
+    labels: bycat.map(c => c.category),
+    datasets: [{ label: 'Amount (R)', data: bycat.map(c => c.total),
+      backgroundColor: '#ffab0040', borderColor: '#ffab00', borderWidth: 1.5, borderRadius: 4 }]
+  },
+  options: {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#1a1a1a' }, ticks: { color: '#666', callback: v => 'R'+v } },
+      y: { grid: { color: '#1a1a1a' }, ticks: { color: '#aaa' } }
+    }
+  }
+});
+</script>
+{% endblock %}

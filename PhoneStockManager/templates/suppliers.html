@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Suppliers — PhoneStockManager{% endblock %}
+{% block page_name %}Suppliers{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">// SUPPLIERS</div>
+    <div class="page-sub">{{ suppliers|length }} supplier(s) on record</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('addSupModal')">+ Add Supplier</button>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">
+  {% for s in suppliers %}
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">{{ s.name }}</div>
+        <div style="font-size:11px;color:#555;margin-top:2px;">{{ s.phone_count }} phone(s) supplied</div>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-ghost btn-xs" onclick="loadEditSup({{ s.id }})">Edit</button>
+        <form method="POST" action="/suppliers/delete/{{ s.id }}"
+          onsubmit="return confirm('Delete supplier?')">
+          <button type="submit" class="btn btn-danger btn-xs">Del</button>
+        </form>
+      </div>
+    </div>
+    <div class="card-body" style="font-size:12px;">
+      {% if s.contact %}
+      <div class="flex gap-2 mb-1">
+        <span class="text-muted" style="width:70px;">Contact</span>
+        <span>{{ s.contact }}</span>
+      </div>{% endif %}
+      {% if s.phone %}
+      <div class="flex gap-2 mb-1">
+        <span class="text-muted" style="width:70px;">Phone</span>
+        <span class="mono" style="color:#40c4ff;">{{ s.phone }}</span>
+      </div>{% endif %}
+      {% if s.email %}
+      <div class="flex gap-2 mb-1">
+        <span class="text-muted" style="width:70px;">Email</span>
+        <span>{{ s.email }}</span>
+      </div>{% endif %}
+      {% if s.address %}
+      <div class="flex gap-2 mb-1">
+        <span class="text-muted" style="width:70px;">Address</span>
+        <span>{{ s.address }}</span>
+      </div>{% endif %}
+      {% if s.notes %}
+      <div style="margin-top:8px;padding:8px;background:var(--bg2);border-radius:4px;color:#666;font-size:11px;">
+        {{ s.notes }}
+      </div>{% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state" style="grid-column:1/-1">
+    <div class="empty-icon">🏭</div>No suppliers yet. Add your first supplier above.
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ADD MODAL -->
+<div id="addSupModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">+ Add Supplier</span>
+      <button class="modal-close" onclick="closeModal('addSupModal')">✕</button>
+    </div>
+    <form method="POST" action="/suppliers/add">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Business Name *</label>
+            <input name="name" class="form-control" required placeholder="TechSource JHB">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contact Person</label>
+            <input name="contact" class="form-control" placeholder="Full name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input name="phone" class="form-control" placeholder="011 000 0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input name="email" type="email" class="form-control" placeholder="email@example.com">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Address</label>
+            <input name="address" class="form-control" placeholder="Sandton, JHB">
+          </div>
+        </div>
+        <div class="form-group mt-2">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" placeholder="e.g. Reliable for bulk iPhone stock..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('addSupModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Supplier</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="editSupModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Edit Supplier</span>
+      <button class="modal-close" onclick="closeModal('editSupModal')">✕</button>
+    </div>
+    <form method="POST" id="editSupForm">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Business Name *</label>
+            <input name="name" id="es_name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contact Person</label>
+            <input name="contact" id="es_contact" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input name="phone" id="es_phone" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input name="email" id="es_email" class="form-control">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Address</label>
+            <input name="address" id="es_address" class="form-control">
+          </div>
+        </div>
+        <div class="form-group mt-2">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" id="es_notes" class="form-control"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('editSupModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadEditSup(id) {
+  fetch('/suppliers/get/' + id)
+    .then(r => r.json())
+    .then(s => {
+      document.getElementById('editSupForm').action = '/suppliers/edit/' + s.id;
+      ['name','contact','phone','email','address','notes'].forEach(f => {
+        const el = document.getElementById('es_' + f);
+        if (el) el.value = s[f] || '';
+      });
+      openModal('editSupModal');
+    });
+}
+</script>
+{% endblock %}

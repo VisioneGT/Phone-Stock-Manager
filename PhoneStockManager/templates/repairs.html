@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Repairs — PhoneStockManager{% endblock %}
+{% block page_name %}Repairs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">// REPAIRS</div>
+    <div class="page-sub">{{ repairs|length }} repair job(s) on record</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('addRepairModal')">+ New Repair Job</button>
+</div>
+
+<!-- Status summary -->
+<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;">
+  {% for status, color in [('Pending','amber'),('In Progress','blue'),('Done','green'),('Cancelled','grey')] %}
+  {% set count = repairs | selectattr('status','equalto',status) | list | length %}
+  <div class="kpi-card">
+    <div class="kpi-label">{{ status }}</div>
+    <div class="kpi-value {{ color }}">{{ count }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>#</th><th>Device</th><th>IMEI</th><th>Issue</th>
+        <th>Customer</th><th>Cost</th><th>Status</th>
+        <th>Received</th><th>Completed</th><th>Actions</th>
+      </tr></thead>
+      <tbody>
+        {% for r in repairs %}
+        <tr>
+          <td class="mono muted">{{ r.id }}</td>
+          <td>
+            <div style="font-weight:600;">{{ r.device_name }}</div>
+            {% if r.stock_model %}<div style="font-size:10px;color:#555;">{{ r.stock_model }}</div>{% endif %}
+          </td>
+          <td class="mono muted">{{ r.imei or '—' }}</td>
+          <td style="max-width:160px;font-size:12px;">{{ r.issue }}</td>
+          <td>
+            <div>{{ r.customer_name or '—' }}</div>
+            {% if r.customer_phone %}<div style="font-size:10px;color:#555;">{{ r.customer_phone }}</div>{% endif %}
+          </td>
+          <td class="mono text-amber">R{{ "{:,.0f}".format(r.repair_cost or 0) }}</td>
+          <td>
+            {% if r.status=='Pending' %}<span class="badge badge-amber">Pending</span>
+            {% elif r.status=='In Progress' %}<span class="badge badge-blue">In Progress</span>
+            {% elif r.status=='Done' %}<span class="badge badge-green">Done</span>
+            {% else %}<span class="badge badge-grey">Cancelled</span>{% endif %}
+          </td>
+          <td class="muted">{{ r.date_received }}</td>
+          <td class="muted">{{ r.date_completed or '—' }}</td>
+          <td>
+            <div class="flex gap-2">
+              <button class="btn btn-ghost btn-xs" onclick="loadEditRepair({{ r.id }})">Edit</button>
+              <form method="POST" action="/repairs/delete/{{ r.id }}"
+                onsubmit="return confirm('Delete this repair job?')">
+                <button type="submit" class="btn btn-danger btn-xs">Del</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10"><div class="empty-state">
+          <div class="empty-icon">🔧</div>No repair jobs recorded.
+        </div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADD REPAIR MODAL -->
+<div id="addRepairModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">+ New Repair Job</span>
+      <button class="modal-close" onclick="closeModal('addRepairModal')">✕</button>
+    </div>
+    <form method="POST" action="/repairs/add">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Link to Stock Item (optional)</label>
+            <select name="stock_id" class="form-control">
+              <option value="">— Customer device / not in stock —</option>
+              {% for p in stock_items %}
+              <option value="{{ p.id }}">{{ p.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Device Name *</label>
+            <input name="device_name" class="form-control" required placeholder="iPhone 11">
+          </div>
+          <div class="form-group">
+            <label class="form-label">IMEI</label>
+            <input name="imei" class="form-control" placeholder="15-digit IMEI">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Issue / Fault *</label>
+            <input name="issue" class="form-control" required placeholder="Cracked screen, water damage...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Technician</label>
+            <input name="technician" class="form-control" placeholder="Mike">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Repair Cost (R)</label>
+            <input name="repair_cost" type="number" step="0.01" class="form-control" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-control">
+              <option value="Pending">Pending</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Done">Done</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date Received</label>
+            <input name="date_received" type="date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Customer Name</label>
+            <input name="customer_name" class="form-control" placeholder="Full name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Customer Phone</label>
+            <input name="customer_phone" class="form-control" placeholder="082 000 0000">
+          </div>
+        </div>
+        <div class="form-group mt-2">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" placeholder="Additional details..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('addRepairModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Job</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT REPAIR MODAL -->
+<div id="editRepairModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Edit Repair Job</span>
+      <button class="modal-close" onclick="closeModal('editRepairModal')">✕</button>
+    </div>
+    <form method="POST" id="editRepairForm">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Device Name *</label>
+            <input name="device_name" id="er_device_name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">IMEI</label>
+            <input name="imei" id="er_imei" class="form-control">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Issue *</label>
+            <input name="issue" id="er_issue" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Technician</label>
+            <input name="technician" id="er_technician" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Repair Cost (R)</label>
+            <input name="repair_cost" id="er_repair_cost" type="number" step="0.01" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select name="status" id="er_status" class="form-control">
+              <option value="Pending">Pending</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Done">Done</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date Received</label>
+            <input name="date_received" id="er_date_received" type="date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date Completed</label>
+            <input name="date_completed" id="er_date_completed" type="date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Customer Name</label>
+            <input name="customer_name" id="er_customer_name" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Customer Phone</label>
+            <input name="customer_phone" id="er_customer_phone" class="form-control">
+          </div>
+        </div>
+        <div class="form-group mt-2">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" id="er_notes" class="form-control"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('editRepairModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadEditRepair(id) {
+  fetch('/repairs/get/' + id)
+    .then(r => r.json())
+    .then(r => {
+      document.getElementById('editRepairForm').action = '/repairs/edit/' + r.id;
+      ['device_name','imei','issue','technician','repair_cost',
+       'status','date_received','date_completed','customer_name','customer_phone','notes']
+      .forEach(f => {
+        const el = document.getElementById('er_' + f);
+        if (el) el.value = r[f] || '';
+      });
+      openModal('editRepairModal');
+    });
+}
+</script>
+{% endblock %}

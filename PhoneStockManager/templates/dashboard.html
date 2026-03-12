@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — PhoneStockManager{% endblock %}
+{% block page_name %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">// OVERVIEW</div>
+    <div class="page-sub">Live snapshot of your business</div>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-icon">📦</div>
+    <div class="kpi-label">In Stock</div>
+    <div class="kpi-value white">{{ kpis.total_stock }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">💸</div>
+    <div class="kpi-label">Units Sold</div>
+    <div class="kpi-value white">{{ kpis.sold_count }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">💰</div>
+    <div class="kpi-label">Total Revenue</div>
+    <div class="kpi-value">R{{ "{:,.0f}".format(kpis.total_revenue) }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">📈</div>
+    <div class="kpi-label">Gross Profit</div>
+    <div class="kpi-value {% if kpis.gross_profit < 0 %}red{% endif %}">
+      R{{ "{:,.0f}".format(kpis.gross_profit) }}
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">🏦</div>
+    <div class="kpi-label">Net Profit</div>
+    <div class="kpi-value {% if kpis.net_profit < 0 %}red{% else %}{% endif %}">
+      R{{ "{:,.0f}".format(kpis.net_profit) }}
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">🔧</div>
+    <div class="kpi-label">Active Repairs</div>
+    <div class="kpi-value {% if kpis.repair_count > 0 %}amber{% else %}white{% endif %}">
+      {{ kpis.repair_count }}
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">🏷️</div>
+    <div class="kpi-label">Stock Value</div>
+    <div class="kpi-value white">R{{ "{:,.0f}".format(kpis.stock_value) }}</div>
+  </div>
+</div>
+
+<!-- Charts row 1 -->
+<div class="charts-grid" style="margin-bottom:16px;">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Monthly Profit Trend</span></div>
+    <div class="card-body"><div class="chart-wrap"><canvas id="monthlyChart"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Sales by Platform</span></div>
+    <div class="card-body"><div class="chart-wrap"><canvas id="platformChart"></canvas></div></div>
+  </div>
+</div>
+
+<!-- Charts row 2 -->
+<div class="charts-grid" style="margin-bottom:24px;">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Top Brands Sold</span></div>
+    <div class="card-body"><div class="chart-wrap"><canvas id="brandChart"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Stock by Condition</span></div>
+    <div class="card-body"><div class="chart-wrap"><canvas id="conditionChart"></canvas></div></div>
+  </div>
+</div>
+
+<!-- Bottom row: recent sales + low stock -->
+<div class="charts-grid">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Recent Sales</span>
+      <a href="/sales" class="btn btn-ghost btn-xs">View all →</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Model</th><th>Platform</th>
+          <th>Sell Price</th><th>Profit</th>
+        </tr></thead>
+        <tbody>
+          {% for s in recent_sales %}
+          <tr>
+            <td class="muted">{{ s.sale_date }}</td>
+            <td>{{ s.model }}</td>
+            <td><span class="badge badge-blue">{{ s.platform }}</span></td>
+            <td class="mono">R{{ "{:,.0f}".format(s.sell_price) }}</td>
+            <td class="{% if s.profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">
+              R{{ "{:,.0f}".format(s.profit) }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">⚠ Low Stock Alert</span>
+    </div>
+    <div class="card-body">
+      {% if low_stock %}
+      {% for item in low_stock %}
+      <div class="flex items-center gap-2" style="padding:8px 0;border-bottom:1px solid var(--border);">
+        <span style="flex:1;font-size:13px;">{{ item.model }}</span>
+        <span class="badge badge-amber">{{ item.cnt }} left</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="text-muted" style="font-size:12px;padding:12px 0;">All models well stocked ✓</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const monthly  = {{ monthly|safe }};
+const platform = {{ platform_data|safe }};
+const brands   = {{ brand_data|safe }};
+const cond     = {{ condition_data|safe }};
+const GREEN = '#00e676', GREEN2 = '#00c853', AMBER = '#ffab00',
+      RED = '#ff1744', BLUE = '#40c4ff', MUTED = '#333';
+
+// Monthly profit trend
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'bar',
+  data: {
+    labels: monthly.map(m => m.mo),
+    datasets: [
+      { label: 'Revenue', data: monthly.map(m => m.revenue),
+        backgroundColor: '#40c4ff30', borderColor: BLUE, borderWidth: 1.5, borderRadius: 3 },
+      { label: 'Profit',  data: monthly.map(m => m.profit),
+        backgroundColor: '#00e67630', borderColor: GREEN, borderWidth: 1.5, borderRadius: 3 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#888', font: { size: 11 } } } },
+    scales: {
+      x: { grid: { color: '#1a1a1a' }, ticks: { color: '#666', font: { size: 10 } } },
+      y: { grid: { color: '#1a1a1a' }, ticks: { color: '#666', font: { size: 10 },
+           callback: v => 'R' + (v/1000).toFixed(0) + 'k' } }
+    }
+  }
+});
+
+// Platform donut
+new Chart(document.getElementById('platformChart'), {
+  type: 'doughnut',
+  data: {
+    labels: platform.map(p => p.platform),
+    datasets: [{ data: platform.map(p => p.cnt),
+      backgroundColor: [GREEN+'99',BLUE+'99',AMBER+'99',RED+'99','#9c27b099'],
+      borderColor: '#141414', borderWidth: 2 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'right', labels: { color: '#888', font: { size: 11 }, padding: 10 } }
+    },
+    cutout: '65%'
+  }
+});
+
+// Brand bar
+new Chart(document.getElementById('brandChart'), {
+  type: 'bar',
+  data: {
+    labels: brands.map(b => b.brand),
+    datasets: [{ label: 'Units Sold', data: brands.map(b => b.sold),
+      backgroundColor: GREEN + '40', borderColor: GREEN, borderWidth: 1.5, borderRadius: 4 }]
+  },
+  options: {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#1a1a1a' }, ticks: { color: '#666', font: { size: 10 } } },
+      y: { grid: { color: '#1a1a1a' }, ticks: { color: '#aaa', font: { size: 11 } } }
+    }
+  }
+});
+
+// Condition donut
+new Chart(document.getElementById('conditionChart'), {
+  type: 'doughnut',
+  data: {
+    labels: cond.map(c => c.condition),
+    datasets: [{ data: cond.map(c => c.cnt),
+      backgroundColor: [GREEN+'99','#69f0ae99',BLUE+'99',AMBER+'99',RED+'99'],
+      borderColor: '#141414', borderWidth: 2 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'right', labels: { color: '#888', font: { size: 11 }, padding: 10 } }
+    },
+    cutout: '65%'
+  }
+});
+</script>
+{% endblock %}
